@@ -1,0 +1,33 @@
+# SpringBoot란?
+- 자바 프로그램을 보다 쉽고 빠르게 만들게 하는 도구
+
+## SpringBoot 개발환경 만들기
+1. JDK 설치 // 자바코드의 번역 & 실행 담당
+2. IDE // 개발 생산성을 높여주는 도구
+3. SpringBoot
+
+## MVC 패턴
+ ![image](https://user-images.githubusercontent.com/89372098/132499528-1a058cbf-f7e3-49ed-a57a-cbfc7690ba64.png)
+ - 화면을 담당하는 View Templates
+ - 처리과정을 담당하는 Controller
+ - 데이터를 관리하는 Model
+
+## MVC 패턴을 활용한 템플릿 페이지 만들기
+1. src-> main-> resources-> template 파일에 greetings.mustache 파일을 만든다
+![image](https://user-images.githubusercontent.com/89372098/132500363-c89a5ad5-c1d6-4220-904e-274a10785447.png)  
+**여기서 mustache란 viewtemplates를 만들어 주는 도구이다**
+
+2. <컨트롤러 생성> src-> main-> java-> com.example.firstproject에 controller라는 패키지 생성-> java클래스의 FirstController 생성  
+![image](https://user-images.githubusercontent.com/89372098/132501189-fc51b9f9-2021-42ed-aa8f-31d94add4846.png)
+
+3. greetings.mustache와 연결하는 코드 작성  
+![image](https://user-images.githubusercontent.com/89372098/132501928-685f265e-a2a2-48d8-851d-fabef4bd863e.png)  
+- @Controller로 컨트롤러를 선언한다
+- return"페이지명"; 으로 응답 페이지를 설정한다
+- @GetMapping이라는 URL 요청 연결
+- addAttribute()라는 변수를 등록한다.
+![image](https://user-images.githubusercontent.com/89372098/132505523-00cb3e30-55b2-42ec-8eb1-5195451e5b2f.png)
+- 변수값 넣기
+
+4. 완성
+![image](https://user-images.githubusercontent.com/89372098/132505608-fb0a9042-1884-4f9e-9b0e-36c350459b9f.png)
