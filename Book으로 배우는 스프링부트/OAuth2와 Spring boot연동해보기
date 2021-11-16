@@ -1,0 +1,338 @@
+1. 구글 서비스 등록
+
+[https://console.cloud.google.com/](https://console.cloud.google.com/) 요기서 인증번호 clientId와 clientSecret을 발급받으면 구글 로그인을 통하여 접속 가능!
+
+1) 구글 플랫폼 새 프로젝트 생성 > 프로젝트 이름 입력 > 만들기
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/4fa80b79-49ae-4fc9-a24e-d699f5545092/Untitled.png)
+
+2) 새 프로젝트 > API 개요로 이동 > 사용자 인증 정보 > 사용자 인증 정보 만들기 > OAuth 클라이언트 ID 클릭
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/59651a36-02aa-46f4-b738-8700f2c67467/Untitled.png)
+
+3) 동의 화면 구성 > User Type : 외부 > 만들기
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/74864a17-b4a1-46ad-ba2c-0de47c0fcbdd/Untitled.png)
+
+4)  OAuth 동의 화면 > 앱 이름 입력(test-project) > 사용자 지원 이메일 입력 > 개발자 연락처 정보입력 > 저장후 계속
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/fff601a1-055d-421a-b55c-b4c7ea055e07/Untitled.png)
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/57f7bb91-a932-43e9-9d90-36e7a23f0a02/Untitled.png)
+
+5) 범위 추가 또는 삭제 클릭 > 범위는 기본값 email, profile, openid 선택 > 저장 후 계속 > 테스트 사용자는 패스
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/4b8b300f-8c83-428c-b322-75f33838036f/Untitled.png)
+
+6) 사용자 인증 정보로 이동 > 사용자 인증 정보 만들기 > OAuth 클라이언트 ID 클릭
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/3769dd63-4e06-42b1-a29a-ff0e26f0284a/Untitled.png)
+
+7) 애플리케이션 유형 (웹 애플리케이션) 선택 > 이름 입력 > 스인된 URl 입력(http://localhost8080/login/oauth2/code/google)
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/5aef1fd3-c8c8-4a80-a531-dc491005c668/Untitled.png)
+
+8) 클라이언트 ID, 클라이언트 보안 비밀번호 GET
+
+(잘 기억해야함 메모장에 적어두던지..)
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/d7376bf8-5faf-4641-8829-1d411063c1ee/Untitled.png)
+
+1. [application-oauth.properties](http://application-oauth.properties) 에 로그인 해당 정보 입력
+
+```java
+spring.security.oauth2.client.registration.google.client-id=603150432001-rj3ouduk9ru362tj1c5esplh5n0hn3q1.apps.googleusercontent.com  // 클라이언트 ID
+spring.security.oauth2.client.registration.google.client-secret=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 // 클라이언트 보안 비밀번호
+spring.security.oauth2.client.registration.google.scope=profile,email
+```
+
+1. [application.properties](http://application.properties) 추가
+
+```java
+spring.profiles.include=ouath
+```
+
+1. .gitignor 등록
+
+```java
+application-oauth.properties
+```
+
+1. 구글 로그인 연동
+
+```java
+User 클래스 생성
+
+@Getter
+@NoArgsConstructor
+@Entity
+public class User extends BaseTimeEntity {
+
+   @Id
+   @GeneratedValue(strategy = GenerationType.IDENTITY)
+   private Long id;
+
+   @Column(nullable = false)
+   private String name;
+
+   @Column(nullable = false)
+   private String email;
+
+   @Enumerated(EnumType.STRING)
+   @Column(nullable = false)
+   private Role role;
+
+   @Builder
+   public User(String name, String email, Role role) {
+       this.name = name;
+       this.email = email;
+       this.role = role;
+   }
+
+   public String getRoleKey() {
+       return this.role.getKey();
+   }
+}
+
+```
+
+각 사용자의 권한을 관리할 Enum 클래스 Role 생성
+
+```java
+Role
+
+@Getter
+@RequiredArgsConstructor
+public enum Role {
+
+   GUSET("ROLE_GUEST", "손님"),
+   USER("ROLE_USER", "일반 사용자");
+
+   private final String key;
+   private final String title;
+}
+```
+
+User의 CRUD를 책임 질 UserRepository 생성
+
+```java
+UserRepository
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+   Optional<User> findByEmail(String email);
+}
+```
+
+스프링 시큐리티 설정
+
+```java
+build.gradle
+
+compile('org.springframework.boot:spring-boot-starter-oauth2-client')
+```
+
+SecurityConfig 클래스 생성
+
+```java
+SecurityConfig
+
+@RequiredArgsConstructor
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+   private final CustomOAuth2UserService customOAuth2UserService;
+
+   @Override
+   protected void configure(HttpSecurity http) throws Exception {
+       http
+               .csrf().disable()
+               .headers().frameOptions().disable() 
+               .and()
+                   .authorizeRequests()
+                   .antMatchers("/", "/css/**", "/images/**",
+                           "/js/**", "/h2-console/**").permitAll()
+                   .antMatchers("/api/v1/**").hasRole(Role.USER.name())
+                   .anyRequest().authenticated()
+               .and()
+                   .logout()
+                       .logoutSuccessUrl("/")
+               .and()
+                   .oauth2Login()
+                       .userInfoEndpoint()
+                           .userService(customOAuth2UserService);
+   }
+}
+```
+
+**CustomOAuth2UserService**클래스를 생성
+
+```java
+**CustomOAuth2UserService**
+
+@RequiredArgsConstructor
+@Service
+public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
+   private final UserRepository userRepository;
+   private final HttpSession httpSession;
+
+   @Override
+   public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+       OAuth2UserService delegate = new DefaultOAuth2UserService();
+       OAuth2User oAuth2User = delegate.loadUser(userRequest);
+
+       String registrationId = userRequest.getClientRegistration().getRegistrationId();
+       String userNameAttributeName = userRequest.getClientRegistration()
+               .getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName();
+
+       OAuthAttributes attributes = OAuthAttributes.
+               of(registrationId, userNameAttributeName, oAuth2User.getAttributes());
+
+       User user = saveOrUpdate(attributes);
+       httpSession.setAttribute("user", new SessionUser(user));
+
+       return new DefaultOAuth2User(
+               Collections.singleton(new SimpleGrantedAuthority(user.getRoleKey())),
+               attributes.getAttributes(),
+               attributes.getNameAttributeKey());
+   }
+
+   private User saveOrUpdate(OAuthAttributes attributes) {
+       User user = userRepository.findByEmail(attributes.getEmail())
+                   .orElse(attributes.toEntity());
+
+       return userRepository.save(user);
+   }
+}
+```
+
+CustomAttributes 클래스 생성
+
+```java
+CustomAttributes
+
+@Getter
+public class OAuthAttributes {
+   private Map<String, Object> attributes;
+   private String nameAttributeKey;
+   private String name;
+   private String email;
+
+   @Builder
+   public OAuthAttributes(Map<String, Object> attributes,
+                          String nameAttributeKey, String name,
+                          String email) {
+       this.attributes = attributes;
+       this.nameAttributeKey= nameAttributeKey;
+       this.name = name;
+       this.email = email;
+   }
+
+   public static OAuthAttributes of(String registrationId,
+                                    String userNameAttributeName,
+                                    Map<String, Object> attributes) {
+       return ofGoogle(userNameAttributeName, attributes);
+   }
+
+   private static OAuthAttributes ofGoogle(String userNameAttributeName,
+                                           Map<String, Object> attributes) {
+       return OAuthAttributes.builder()
+               .name((String) attributes.get("name"))
+               .email((String) attributes.get("email"))
+               .attributes(attributes)
+               .nameAttributeKey(userNameAttributeName)
+               .build();
+   }
+
+   public User toEntity() {
+       return User.builder()
+               .name(name)
+               .email(email)
+               .role(Role.GUSET)
+               .build();
+   }
+}
+```
+
+Session User 클래스 추가
+
+```java
+Session User
+
+@Getter
+public class SessionUser implements Serializable {
+   private String name;
+   private String email;
+
+   public SessionUser(User user) {
+       this.name = user.getName();
+       this.email = user.getEmail();
+   }
+}
+```
+
+index.mustache 추가
+
+```java
+{{>layout/header}}
+
+    <h1>예은이의 웹페이지</h1>
+    <div class="col-md-12">
+        <div class="row">
+            <div class="col-md-6">
+                {{#userName}}
+                    Logged in as: <span id="user">{{userName}}</span>
+                    <a href="/logout" class="btn btn-info active" role="button">Logout</a>
+                {{/userName}}
+                {{^userName}}
+                    <a href="/oauth2/authorization/google" class="btn btn-success active" role="button">Google Login</a>
+                {{/userName}}
+            </div>
+        </div>
+        <br>
+        <!-- 목록 출력 영역 -->
+        ...
+{{>layout/footer}}
+```
+
+IndexController
+
+```java
+IndexController
+
+@RequiredArgsConstructor
+@Controller
+public class IndexController {
+
+   private final PostService postService;
+   private final HttpSession httpSession;
+
+   @GetMapping("/")
+   public String index(Model model) {
+       model.addAttribute("posts", postService.findAllDesc());
+
+       SessionUser user = (SessionUser) httpSession.getAttribute("user");
+
+       if(user != null){
+           model.addAttribute("userName", user.getName(a));
+       }
+
+       return "index";
+   }
+}
+```
+
+결과
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/ebaed5db-d4eb-43fc-87c6-55376750f44f/Untitled.png)
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/ba6b5f59-f49e-4dfd-867a-8702293efb15/Untitled.png)
+
+끼얏호~~~~~~~~~~~~
+
+
+
+느낀점
+gsitm 인턴십오기 전에 "스프링부트와 aws로 혼자 구현하는 웹서비스" 책을 실습해보았는데 그 책에 OAuth2로 로그인 연동하는 실습이 있어서
+이번 과제가 수월했습니다.
+막상 구현하고 보니, 성취감을 느끼게 되었습니다.
